@@ -11,6 +11,7 @@ A modern, responsive MP3 player that connects to Google Drive folders to stream 
 - ⏯️ Full playback controls (play, pause, next, previous)
 - 📱 Responsive design for mobile and desktop
 - 🎯 Clean, modern UI with Shadcn/ui components
+- 📊 Comprehensive analytics tracking with Mixpanel
 
 ## Setup
 
@@ -32,7 +33,14 @@ A modern, responsive MP3 player that connects to Google Drive folders to stream 
    ```
    VITE_API_KEY=your_google_drive_api_key_here
    VITE_DRIVE_ID=your_google_drive_folder_id_here
+   VITE_MIXPANEL_TOKEN=your_mixpanel_project_token_here
    ```
+
+   **Mixpanel Setup (Optional)**:
+   - Go to [Mixpanel](https://mixpanel.com/) and create a free account
+   - Create a new project
+   - Copy your project token from Project Settings
+   - Add it to your `.env` file as `VITE_MIXPANEL_TOKEN`
 
 4. **Install Dependencies**
    ```bash
@@ -51,6 +59,35 @@ A modern, responsive MP3 player that connects to Google Drive folders to stream 
 3. Click on MP3 files to play them
 4. Use the player controls to manage playback
 5. Use the "Back" button to navigate to parent folders
+
+## Analytics Tracking
+
+The app includes comprehensive Mixpanel analytics tracking:
+
+**Navigation Events**:
+- `Page View` - When the app loads
+- `Folder View` - When navigating into folders (tracks folder name and path)
+- `Breadcrumb Navigation` - When clicking breadcrumb links
+
+**Music Player Events**:
+- `File Select` - When selecting an MP3 file (tracks file name and location)
+- `Play Button Click` - When starting playback
+- `Pause Button Click` - When pausing playback
+- `Skip Next Click` - When skipping to next track
+- `Skip Previous Click` - When skipping to previous track
+- `Playback Session` - Detailed session tracking including:
+  - File name and location
+  - Total duration and played time
+  - Completion percentage
+  - End reason (completed, skipped, paused, changed track)
+
+**User Interaction Events**:
+- `Volume Change` - When adjusting volume
+- `Dark Mode Toggle` - When switching themes
+- `Back Button Click` - When navigating back
+- `Audio Error` - When audio fails to load or play
+
+All events include timestamps and relevant context for detailed analytics insights.
 
 ## Project Structure
 

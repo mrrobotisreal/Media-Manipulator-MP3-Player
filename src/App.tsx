@@ -5,6 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { loadFiles, getDirectDownloadLink, isMP3File, isFolder, formatTime } from '@/lib/google-drive';
+import {
+  trackPageView,
+  trackFolderView,
+  trackFileSelect,
+  trackPlayClick,
+  trackPauseClick,
+  trackPlaybackSession,
+  trackSkipNext,
+  trackSkipPrevious,
+  trackBreadcrumbClick,
+  trackBackClick,
+  trackVolumeChange,
+  trackDarkModeToggle,
+  trackAudioError,
+  getCurrentFolderPath
+} from '@/lib/analytics';
 import type { GoogleDriveFile, BreadcrumbItem } from '@/types';
 
 const MP3DrivePlayer = () => {
@@ -22,11 +38,17 @@ const MP3DrivePlayer = () => {
   const [audioLoading, setAudioLoading] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
 
+  // Analytics tracking state
+  const [playbackStartTime, setPlaybackStartTime] = useState<number | null>(null);
+  const [totalPlayedTime, setTotalPlayedTime] = useState(0);
+
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // Toggle dark mode
   const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+    trackDarkModeToggle(newDarkMode);
   };
 
   // Apply dark mode to document
@@ -54,30 +76,71 @@ const MP3DrivePlayer = () => {
   // Initial load
   useEffect(() => {
     loadFilesFromDrive();
+    trackPageView();
   }, []);
+
+  // Track playback session on component unmount or page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (currentTrack && isPlaying && playbackStartTime) {
+        const playedTime = totalPlayedTime + (Date.now() - playbackStartTime) / 1000;
+        trackPlaybackSession(
+          currentTrack.name,
+          getCurrentFolderPath(breadcrumb),
+          duration,
+          playedTime,
+          'paused'
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Also track on component unmount
+      handleBeforeUnload();
+    };
+  }, [currentTrack, isPlaying, playbackStartTime, totalPlayedTime, duration, breadcrumb]);
 
   // Navigate to folder
   const navigateToFolder = (folder: GoogleDriveFile) => {
-    setBreadcrumb([...breadcrumb, { id: folder.id, name: folder.name }]);
+    const newBreadcrumb = [...breadcrumb, { id: folder.id, name: folder.name }];
+    setBreadcrumb(newBreadcrumb);
     loadFilesFromDrive(folder.id);
+
+    // Track folder view
+    trackFolderView(folder.name, getCurrentFolderPath(newBreadcrumb));
   };
 
   // Navigate back
   const navigateBack = () => {
     if (breadcrumb.length > 1) {
+      const fromPath = getCurrentFolderPath(breadcrumb);
       const newBreadcrumb = breadcrumb.slice(0, -1);
+      const toPath = getCurrentFolderPath(newBreadcrumb);
       const targetFolder = newBreadcrumb[newBreadcrumb.length - 1];
+
       setBreadcrumb(newBreadcrumb);
       loadFilesFromDrive(targetFolder.id);
+
+      // Track back navigation
+      trackBackClick(fromPath, toPath);
     }
   };
 
   // Navigate to specific breadcrumb item
   const navigateToBreadcrumb = (index: number) => {
+    const fromPath = getCurrentFolderPath(breadcrumb);
     const newBreadcrumb = breadcrumb.slice(0, index + 1);
+    const toPath = getCurrentFolderPath(newBreadcrumb);
     const targetFolder = newBreadcrumb[newBreadcrumb.length - 1];
+
     setBreadcrumb(newBreadcrumb);
     loadFilesFromDrive(targetFolder.id);
+
+    // Track breadcrumb navigation
+    trackBreadcrumbClick(targetFolder.name, fromPath, toPath);
   };
 
   // Play track
@@ -87,10 +150,27 @@ const MP3DrivePlayer = () => {
       return;
     }
 
+    // Track playback session for previous track if it was playing
+    if (currentTrack && isPlaying && playbackStartTime) {
+      const playedTime = totalPlayedTime + (Date.now() - playbackStartTime) / 1000;
+      trackPlaybackSession(
+        currentTrack.name,
+        getCurrentFolderPath(breadcrumb),
+        duration,
+        playedTime,
+        'changed_track'
+      );
+    }
+
     setCurrentTrack(file);
     setAudioLoading(true);
     setAudioError(null);
     setIsPlaying(false);
+    setPlaybackStartTime(null);
+    setTotalPlayedTime(0);
+
+    // Track file selection
+    trackFileSelect(file.name, getCurrentFolderPath(breadcrumb));
 
     if (audioRef.current) {
       const directLink = getDirectDownloadLink(file.id);
@@ -101,16 +181,32 @@ const MP3DrivePlayer = () => {
 
   // Toggle play/pause
   const togglePlayPause = () => {
-    if (audioRef.current && !audioLoading) {
+    if (audioRef.current && !audioLoading && currentTrack) {
+      const folderPath = getCurrentFolderPath(breadcrumb);
+
       if (isPlaying) {
+        // Track pause
+        trackPauseClick(currentTrack.name, folderPath);
+
+        // Update total played time
+        if (playbackStartTime) {
+          setTotalPlayedTime(prev => prev + (Date.now() - playbackStartTime) / 1000);
+          setPlaybackStartTime(null);
+        }
+
         audioRef.current.pause();
       } else {
+        // Track play
+        trackPlayClick(currentTrack.name, folderPath);
+
         audioRef.current.play().then(() => {
           setIsPlaying(true);
+          setPlaybackStartTime(Date.now());
         }).catch((error) => {
           console.error('Play failed:', error);
           setIsPlaying(false);
           setAudioError('Failed to play audio. Please try again.');
+          trackAudioError(currentTrack.name, folderPath, 'Play failed');
         });
       }
     }
@@ -121,7 +217,14 @@ const MP3DrivePlayer = () => {
     const mp3Files = files.filter(file => isMP3File(file));
     const currentIndex = mp3Files.findIndex(file => file.id === currentTrack?.id);
     if (currentIndex < mp3Files.length - 1) {
-      playTrack(mp3Files[currentIndex + 1]);
+      const nextFile = mp3Files[currentIndex + 1];
+
+      // Track skip next
+      if (currentTrack) {
+        trackSkipNext(currentTrack.name, nextFile.name, getCurrentFolderPath(breadcrumb));
+      }
+
+      playTrack(nextFile);
     }
   };
 
@@ -130,7 +233,14 @@ const MP3DrivePlayer = () => {
     const mp3Files = files.filter(file => isMP3File(file));
     const currentIndex = mp3Files.findIndex(file => file.id === currentTrack?.id);
     if (currentIndex > 0) {
-      playTrack(mp3Files[currentIndex - 1]);
+      const previousFile = mp3Files[currentIndex - 1];
+
+      // Track skip previous
+      if (currentTrack) {
+        trackSkipPrevious(currentTrack.name, previousFile.name, getCurrentFolderPath(breadcrumb));
+      }
+
+      playTrack(previousFile);
     }
   };
 
@@ -151,12 +261,15 @@ const MP3DrivePlayer = () => {
     setAudioLoading(false);
     setAudioError(null);
     // Auto-play when ready
-    if (audioRef.current) {
+    if (audioRef.current && currentTrack) {
       audioRef.current.play().then(() => {
         setIsPlaying(true);
+        setPlaybackStartTime(Date.now());
+        trackPlayClick(currentTrack.name, getCurrentFolderPath(breadcrumb));
       }).catch((error) => {
         console.error('Auto-play failed:', error);
         setIsPlaying(false);
+        trackAudioError(currentTrack.name, getCurrentFolderPath(breadcrumb), 'Auto-play failed');
       });
     }
   };
@@ -165,6 +278,10 @@ const MP3DrivePlayer = () => {
     setAudioLoading(false);
     setIsPlaying(false);
     setAudioError('Failed to load audio file. Please try again.');
+
+    if (currentTrack) {
+      trackAudioError(currentTrack.name, getCurrentFolderPath(breadcrumb), 'Failed to load audio file');
+    }
   };
 
   const handleLoadStart = () => {
@@ -172,6 +289,20 @@ const MP3DrivePlayer = () => {
   };
 
   const handleEnded = () => {
+    // Track completed playback session
+    if (currentTrack && playbackStartTime) {
+      const playedTime = totalPlayedTime + (Date.now() - playbackStartTime) / 1000;
+      trackPlaybackSession(
+        currentTrack.name,
+        getCurrentFolderPath(breadcrumb),
+        duration,
+        playedTime,
+        'completed'
+      );
+    }
+
+    setPlaybackStartTime(null);
+    setTotalPlayedTime(0);
     nextTrack();
   };
 
@@ -191,6 +322,9 @@ const MP3DrivePlayer = () => {
     if (audioRef.current) {
       audioRef.current.volume = newVolume;
     }
+
+    // Track volume change
+    trackVolumeChange(newVolume);
   };
 
   return (
@@ -389,8 +523,19 @@ const MP3DrivePlayer = () => {
           onLoadStart={handleLoadStart}
           onError={handleAudioError}
           onEnded={handleEnded}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
+          onPlay={() => {
+            setIsPlaying(true);
+            if (!playbackStartTime) {
+              setPlaybackStartTime(Date.now());
+            }
+          }}
+          onPause={() => {
+            setIsPlaying(false);
+            if (playbackStartTime) {
+              setTotalPlayedTime(prev => prev + (Date.now() - playbackStartTime) / 1000);
+              setPlaybackStartTime(null);
+            }
+          }}
         />
       </div>
     </div>
