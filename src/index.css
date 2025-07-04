@@ -118,4 +118,46 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Custom toast styles */
+  .success-toast {
+    background: var(--success-bg) !important;
+    color: var(--success-text) !important;
+    border-color: var(--success-border) !important;
+  }
+
+  .success-toast [data-title] {
+    color: var(--success-text) !important;
+    font-weight: 600;
+  }
+
+  .success-toast [data-description] {
+    color: var(--success-text) !important;
+    opacity: 0.9;
+  }
+
+  .error-toast {
+    background: var(--error-bg) !important;
+    color: var(--error-text) !important;
+    border-color: var(--error-border) !important;
+  }
+
+  .error-toast [data-title] {
+    color: var(--error-text) !important;
+    font-weight: 600;
+  }
+
+  .error-toast [data-description] {
+    color: var(--error-text) !important;
+    opacity: 0.9;
+  }
+
+  /* Ensure toast icons use the right colors */
+  .success-toast [data-icon] {
+    color: var(--success-text) !important;
+  }
+
+  .error-toast [data-icon] {
+    color: var(--error-text) !important;
+  }
 }
