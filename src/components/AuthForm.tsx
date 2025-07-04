@@ -19,7 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { signIn, signUp } from '@/lib/auth';
+import { signIn } from '@/lib/auth';
 import { analytics } from '@/lib/firebase';
 import { logEvent } from 'firebase/analytics';
 import { Music, Eye, EyeOff } from 'lucide-react';
@@ -35,7 +35,7 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export const AuthForm: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin,] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -88,20 +88,6 @@ export const AuthForm: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleMode = () => {
-    setIsLogin(true); // Always set to login since signup is disabled
-
-    // Track form toggle with Firebase Analytics
-    logEvent(analytics, 'auth_form_toggle', {
-      mode: 'login'
-    });
-
-    // Track form toggle with Mixpanel
-    mixpanel.track('Auth Form Toggle', {
-      mode: 'login'
-    });
   };
 
   return (
