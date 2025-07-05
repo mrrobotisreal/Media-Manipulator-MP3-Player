@@ -187,7 +187,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onResumeLastSession }) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-72 sm:h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={progressStats.weeklyProgress}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -243,9 +243,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onResumeLastSession }) => {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ language, progressPercentage }) =>
-                      `${language} (${progressPercentage.toFixed(0)}%)`
-                    }
+                    label={false}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="listeningTime"
@@ -255,8 +253,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onResumeLastSession }) => {
                     ))}
                   </Pie>
                   <Tooltip formatter={(value: number) => [`${formatTime(value)}`, 'Listening Time']} />
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+            {/* Mobile-friendly language list */}
+            <div className="mt-4 grid grid-cols-2 sm:hidden gap-2">
+              {progressStats.languageBreakdown.map((lang, index) => (
+                <div key={lang.language} className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  <span className="text-sm font-medium">{lang.language}</span>
+                  <span className="text-xs text-gray-500">
+                    {lang.progressPercentage.toFixed(0)}%
+                  </span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -308,7 +322,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onResumeLastSession }) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-3 sm:space-y-0">
               <div className="flex-1">
                 <p className="font-medium">{userProgress.lastTrack.fileName}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -319,7 +333,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onResumeLastSession }) => {
                   {String(Math.floor(userProgress.lastTrack.currentTime % 60)).padStart(2, '0')}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between sm:justify-start gap-3">
                 <Badge variant="secondary">
                   {Math.round((userProgress.lastTrack.currentTime / (userProgress.audioProgress[userProgress.lastTrack.fileId]?.duration || 1)) * 100)}% Complete
                 </Badge>
