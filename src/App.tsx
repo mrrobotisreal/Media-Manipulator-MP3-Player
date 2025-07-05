@@ -1,5 +1,5 @@
 import React from 'react';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, ProgressProvider } from '@/contexts';
 import { MP3DrivePlayer } from '@/components/MP3DrivePlayer';
 import { AuthForm } from '@/components/AuthForm';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,7 +22,11 @@ const AppContent: React.FC = () => {
     return <AuthForm />;
   }
 
-  return <MP3DrivePlayer />;
+  return (
+    <ProgressProvider>
+      <MP3DrivePlayer />
+    </ProgressProvider>
+  );
 };
 
 const App: React.FC = () => {
